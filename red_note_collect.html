@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coze 工作流专用调用表单</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            padding-top: 50px;
+            color: #333;
+        }
+        .card {
+            background: white;
+            width: 100%;
+            max-width: 700px;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        }
+        h2 { margin-top: 0; color: #165DFF; margin-bottom: 20px; }
+        .description { color: #666; font-size: 14px; margin-bottom: 30px; }
+        
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; }
+        
+        /* 输入框样式 */
+        input[type="text"], input[type="password"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e5e6eb;
+            border-radius: 8px;
+            box-sizing: border-box;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        textarea { resize: vertical; min-height: 80px; font-family: monospace; }
+        input:focus, textarea:focus { border-color: #165DFF; outline: none; }
+
+        /* 必填项标记 */
+        .required::after { content: "*"; color: red; margin-left: 4px; }
+
+        /* 按钮样式 */
+        button {
+            background-color: #165DFF;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover { background-color: #0e42d2; }
+        button:disabled { background-color: #aebdff; cursor: not-allowed; }
+
+        /* 结果展示区 */
+        #result-area {
+            margin-top: 30px;
+            display: none; /* 默认隐藏 */
+        }
+        pre {
+            background: #232323;
+            color: #83ff83;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        .status-tag {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>🚀 调用 Coze 工作流</h2>
+    <p class="description">
+        Workflow ID: 7603017775339487267<br>
+        请输入工作流所需的 Cookie 和 Keywords 参数。
+    </p>
+
+    <!-- 配置部分 -->
+    <div class="form-group">
+        <label class="required" for="token">Coze API Token (PAT)</label>
+        <input type="password" id="token" placeholder="粘贴你的 Access Token (例如: pat_xxxx...)">
+    </div>
+
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0;">
+
+    <!-- 参数表单 -->
+    <div class="form-group">
+        <label class="required" for="cookie">Cookie (字符串)</label>
+        <textarea id="cookie" placeholder="在此处粘贴完整的 Cookie 字符串..." rows="4"></textarea>
+    </div>
+
+    <div class="form-group">
+        <label class="required" for="keywords">Keywords (关键词)</label>
+        <input type="text" id="keywords" placeholder="例如：人工智能, Python教程">
+    </div>
+
+    <button id="submitBtn" onclick="submitForm()">开始执行</button>
+
+    <!-- 结果展示 -->
+    <div id="result-area">
+        <div id="status-label" class="status-tag">执行结果</div>
+        <pre id="output">等待返回数据...</pre>
+    </div>
+</div>
+
+<script>
+    const WORKFLOW_ID = "7603017775339487267";
+
+    async function submitForm() {
+        // 1. 清洗 Token
+        let tokenRaw = document.getElementById('token').value;
+        let token = tokenRaw.replace(/[^\x21-\x7E]/g, ''); 
+
+        const cookieVal = document.getElementById('cookie').value; 
+        const keywordsVal = document.getElementById('keywords').value.trim();
+        
+        const btn = document.getElementById('submitBtn');
+        const output = document.getElementById('output');
+        const statusLabel = document.getElementById('status-label');
+        const resultArea = document.getElementById('result-area');
+
+        if (!token) return alert("API Token 不能为空");
+        if (!cookieVal) return alert("Cookie 不能为空");
+
+        // 2. 构造数据
+        const payload = {
+            workflow_id: WORKFLOW_ID,
+            parameters: {
+                // 请确保这里的 key (cookie, keywords) 与工作流【已发布版本】的开始节点变量名完全一致
+                cookie: cookieVal,
+                keywords: keywordsVal
+            }
+        };
+
+        // 🔴 调试步骤：打印发出的数据
+        // 如果这里显示的 JSON 和你工作流里的不一样，那就是问题所在
+        console.log("正在发送的数据:", payload);
+
+        btn.disabled = true;
+        btn.innerText = "运行中...";
+        resultArea.style.display = "block";
+        output.innerText = "正在请求...\n\n发送的参数内容:\n" + JSON.stringify(payload.parameters, null, 2);
+        statusLabel.innerText = "请求中";
+        statusLabel.style.backgroundColor = "#ffb400";
+
+        try {
+            const response = await fetch('https://api.coze.cn/v1/workflow/run', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            
+            if (data.code === 0) {
+                statusLabel.innerText = "执行成功";
+                statusLabel.style.backgroundColor = "#00b42a";
+                let cleanData = data;
+                try {
+                    if (data.data && typeof data.data === 'string') {
+                        cleanData.data = JSON.parse(data.data);
+                    }
+                } catch(e){}
+                output.innerText = "✅ 成功返回:\n" + JSON.stringify(cleanData, null, 2);
+            } else {
+                // 此时捕获 API 逻辑错误 (如 code 4000)
+                statusLabel.innerText = "API 拒绝";
+                statusLabel.style.backgroundColor = "#ff7d00";
+                output.innerText = "⚠️ API 报错 (Code " + data.code + "):\n" + data.msg + 
+                "\n\n👉 极大概率原因：你修改了 Start 节点的参数，但没有点击右上角的【发布】按钮。\nAPI 只能访问已发布的版本。";
+            }
+
+        } catch (error) {
+            console.error(error);
+            statusLabel.innerText = "网络/系统错误";
+            statusLabel.style.backgroundColor = "#f53f3f";
+            
+            if (error.message.includes('Failed to fetch')) {
+                output.innerText = "❌ 跨域(CORS)错误。\n请确保已开启 'Allow CORS' 浏览器插件。";
+            } else {
+                output.innerText = "❌ 错误:\n" + error.message;
+            }
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "开始执行";
+        }
+    }
+</script>
+
+</body>
+</html>
